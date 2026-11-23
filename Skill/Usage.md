@@ -11,8 +11,8 @@ AGYCommando is cloned and used inside arbitrary host projects:
    git clone https://github.com/LoggingNewMemory/AGYCommando.git
    ```
 2. **Dual Execution Models**:
-   - Running from inside AGYCommando: `cd AGYCommando && ./Scripts/...`
-   - Running directly from the host project root: `./AGYCommando/Scripts/...`
+   - Running from inside AGYCommando: `cd AGYCommando && ./(script)`
+   - Running directly from the host project root: `./AGYCommando/(script)`
 
 ## Strict LLM Rules
 
@@ -21,4 +21,4 @@ AGYCommando is cloned and used inside arbitrary host projects:
   - All paths must be dynamically resolved relative to the host repository or the script's directory.
   - AGYCommando must be able to run in any project environment out-of-the-box.
 - **Dual Execution Compatibility**:
-  - Any commands, scripts, or modifications created or executed by the LLM must seamlessly support both invocation patterns (`cd AGYCommando && ./Scripts/...` or `./AGYCommando/Scripts/...`).
+  - Any commands, scripts, or modifications created or executed by the LLM must seamlessly support both invocation patterns (`cd AGYCommando && ./(script)` or `./AGYCommando/(script)`).

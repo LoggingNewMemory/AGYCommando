@@ -9,8 +9,8 @@ All LLMs and AI agents working on this project must consult and strictly adhere 
 - **Understand Before Write Anything**: If needed, scan the whole project & files relevant to current task. Understand it first to prevent false asumption.
 - **Universal Portability (No Hardcoded Paths)**: AGYCommando is designed to be cloned and used in any target project repository. Never hardcode paths, usernames, or project directories into scripts, configuration files, or codebase changes. All paths must be dynamically resolved.
 - **Dual Execution Support**: Ensure support for both invocation patterns:
-  1. Changing directory into `AGYCommando`: `cd AGYCommando && ./Scripts/...`
-  2. Directly from the host project root: `./AGYCommando/Scripts/...`
+  1. Changing directory into `AGYCommando`: `cd AGYCommando && ./(script)`
+  2. Directly from the host project root: `./AGYCommando/(script)`
 
 ## Skill Files (LLM Only)
 

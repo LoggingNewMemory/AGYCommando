@@ -24,11 +24,11 @@ AGYCommando can be used in any project:
    - **Navigate to AGYCommando**:
      ```bash
      cd AGYCommando
-     ./Scripts/swarm.sh <task...>
+     ./swarm.sh <task...>
      ```
    - **Run from project root**:
      ```bash
-     ./AGYCommando/Scripts/swarm.sh <task...>
+     ./AGYCommando/swarm.sh <task...>
      ```
 
 > **Note**: AGYCommando does not use hardcoded paths and automatically detects the target host repository.
@@ -46,8 +46,8 @@ AGYCommando can be used in any project:
 >
 > **Safety & Isolation**:
 > - Each agent operates inside an isolated Git worktree (`swarm/<task>`), keeping your main branch and other tasks separate and safe.
-> - Always review agent code changes before merging them into your main branch using the interactive test harness: `./Scripts/swarm.sh test` (or `./Scripts/test-swarm.sh`).
-> - If you prefer interactive approval, you can override the agent command at any time via the `--cmd` flag (e.g. `./Scripts/swarm.sh --cmd "agy"`) or by setting the `SWARM_AGENT_CMD` environment variable.
+> - Always review agent code changes before merging them into your main branch using the interactive test harness: `./swarm.sh test` (or `./test-swarm.sh`).
+> - If you prefer interactive approval, you can override the agent command at any time via the `--cmd` flag (e.g. `./swarm.sh --cmd "agy"`) or by setting the `SWARM_AGENT_CMD` environment variable.
 
 ---
 

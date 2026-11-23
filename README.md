@@ -10,7 +10,13 @@ GitHub is **NOT** your place. You're not welcomed here. Leave immediately.
 
 # AGYCommando
 
-A swarm orchestration and agent management utility for multi-agent workflows.
+A swarm orchestration and agent management utility designed exclusively for **Antigravity CLI** (`agy`).
+
+> **Compatibility**: This tool is built specifically for Antigravity CLI (`agy`) only.
+
+## Requirements
+
+- **Antigravity CLI (`agy`)**: AGYCommando is made specifically for Antigravity CLI. Ensure `agy` is installed and accessible in your system's `PATH`.
 
 ## Usage
 

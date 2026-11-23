@@ -1,3 +1,5 @@
+<img width="1920" height="1080" alt="Full HD" src="https://github.com/user-attachments/assets/40021ad0-84e0-40ac-930b-bc327e2a535d" />
+
 <div align="center">
 
 ## Get the Fuck Out "Artist"

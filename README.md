@@ -1,7 +1,3 @@
-# AGYCommando
-
-A swarm orchestration and agent management utility for multi-agent workflows.
-
 <div align="center">
 
 ---
@@ -15,6 +11,10 @@ GitHub is **NOT** your place. You're not welcomed here. Leave immediately.
 ---
 
 </div>
+
+# AGYCommando
+
+A swarm orchestration and agent management utility for multi-agent workflows.
 
 ## Usage
 

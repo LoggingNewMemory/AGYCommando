@@ -2,6 +2,20 @@
 
 A swarm orchestration and agent management utility for multi-agent workflows.
 
+<div align="center">
+
+---
+
+## Get the Fuck Out "Artist"
+### This is NOT your division
+
+If you an Anti AI people who somehow discovered this Repo. Also Get out  
+GitHub is **NOT** your place. You're not welcomed here. Leave immediately.
+
+---
+
+</div>
+
 ## Usage
 
 AGYCommando can be used in any project:

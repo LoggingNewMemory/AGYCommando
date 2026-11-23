@@ -8,7 +8,7 @@ AGYCommando is cloned and used inside arbitrary host projects:
 
 1. **Inside a target project root** (e.g., `/path/to/any-project`):
    ```bash
-   git clone <AGYCommando-URL> AGYCommando
+   git clone https://github.com/LoggingNewMemory/AGYCommando.git
    ```
 2. **Dual Execution Models**:
    - Running from inside AGYCommando: `cd AGYCommando && ./Scripts/...`

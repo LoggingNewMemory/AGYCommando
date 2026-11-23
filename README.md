@@ -27,7 +27,7 @@ AGYCommando can be used in any project:
 1. Clone AGYCommando into your project root:
    ```bash
    cd /path/to/your-project
-   git clone <AGYCommando-URL> AGYCommando
+   git clone https://github.com/LoggingNewMemory/AGYCommando.git
    ```
 
 2. Run scripts using either method:

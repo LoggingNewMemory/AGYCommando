@@ -1,15 +1,5 @@
 <img width="1920" height="1080" alt="Full HD" src="https://github.com/user-attachments/assets/40021ad0-84e0-40ac-930b-bc327e2a535d" />
 
-<div align="center">
-
-## Get the Fuck Out "Artist"
-### This is NOT your division
-
-If you an Anti AI people who somehow discovered this Repo. Also Get out  
-GitHub is **NOT** your place. You're not welcomed here. Leave immediately.
-
-</div>
-
 # AGYCommando
 
 A swarm orchestration and agent management utility designed exclusively for **Antigravity CLI** (`agy`).

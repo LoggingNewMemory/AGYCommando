@@ -97,14 +97,27 @@ load_tasks() {
     done < <(git -C "$BASE_DIR" for-each-ref --format='%(refname)' refs/heads/swarm/ 2>/dev/null)
 
     if [ -f "$SWARM_SH" ]; then
-        local FILE_TASKS=()
-        eval "$(sed -n '/^TASKS=(/,/)/p' "$SWARM_SH" 2>/dev/null | sed 's/TASKS=(/FILE_TASKS=(/' || true)"
-        for t in "${FILE_TASKS[@]}"; do
-            local found=false
-            for existing in "${TASKS[@]}"; do
-                if [ "$existing" = "$t" ]; then found=true; break; fi
-            done
-            if [ "$found" = false ]; then TASKS+=("$t"); fi
-        done
+        local in_block=false
+        while IFS= read -r line || [ -n "$line" ]; do
+            if [[ "$line" =~ ^[[:space:]]*TASKS=\( ]]; then
+                in_block=true
+                continue
+            fi
+            if [ "$in_block" = true ]; then
+                if [[ "$line" =~ ^[[:space:]]*\) ]]; then
+                    break
+                fi
+                local item
+                item="$(echo "$line" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' -e 's/^["'\'']//' -e 's/["'\'']$//')"
+                item="$(echo "$item" | tr ' ' '-' | tr -s '-')"
+                if [ -n "$item" ] && [[ ! "$item" =~ ^# ]]; then
+                    local found=false
+                    for existing in "${TASKS[@]}"; do
+                        if [ "$existing" = "$item" ]; then found=true; break; fi
+                    done
+                    if [ "$found" = false ]; then TASKS+=("$item"); fi
+                fi
+            fi
+        done < "$SWARM_SH"
     fi
 }

@@ -38,8 +38,8 @@ clean_task() {
         sed -i "/^${task}$/d" "$TASKS_FILE"
     fi
 
-    if [ -f "$BASE_DIR/swarm.sh" ]; then
-        sed -i "/^[[:space:]]*[\"']$task[\"']/d" "$BASE_DIR/swarm.sh" 2>/dev/null || true
+    if [ -n "$SWARM_SH" ] && [ -f "$SWARM_SH" ]; then
+        sed -i -E "/^[[:space:]]*[\"']?$(echo "$task" | sed 's/-/[- ]/g')[\"']?[[:space:]]*$/d" "$SWARM_SH" 2>/dev/null || true
     fi
 
     git -C "$BASE_DIR" worktree prune 2>/dev/null || true

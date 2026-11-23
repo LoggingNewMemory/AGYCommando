@@ -8,6 +8,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TARGET_DIR=""
 CLI_TASKS=()
 CUSTOM_AGENT_CMD=""
+FORCE_SPAWN=false
 
 show_help() {
     cat << 'EOF'
@@ -20,6 +21,7 @@ Spawns isolated Git worktrees and terminal tabs running autonomous AI agents (ag
 Options:
   -C, --repo <PATH>       Target git repository path (default: auto-detected project)
       --cmd <COMMAND>     Custom agent command (default: $SWARM_AGENT_CMD or 'agy --dangerously-skip-permissions')
+  -f, --force             Force spawn terminals even if workspace already exists
   -h, --help              Show this help message
 
 Subcommands:
@@ -58,6 +60,9 @@ while [ $# -gt 0 ]; do
         --cmd=*)
             CUSTOM_AGENT_CMD="${1#*=}"
             ;;
+        -f|--force)
+            FORCE_SPAWN=true
+            ;;
         -h|--help)
             show_help
             ;;
@@ -81,19 +86,45 @@ source "$SCRIPT_DIR/lib/terminal.sh"
 
 AGENT_CMD="${CUSTOM_AGENT_CMD:-${SWARM_AGENT_CMD:-agy --dangerously-skip-permissions}}"
 
-if [ ${#CLI_TASKS[@]} -gt 0 ]; then
-    TASKS=("${CLI_TASKS[@]}")
+# Extract line-by-line task entries from TASKS=( ... ) in swarm.sh
+FILE_TASKS=()
+if [ -n "$SWARM_SH" ] && [ -f "$SWARM_SH" ]; then
+    in_block=false
+    while IFS= read -r line || [ -n "$line" ]; do
+        if [[ "$line" =~ ^[[:space:]]*TASKS=\( ]]; then
+            in_block=true
+            continue
+        fi
+        if [ "$in_block" = true ]; then
+            if [[ "$line" =~ ^[[:space:]]*\) ]]; then
+                break
+            fi
+            item="$(echo "$line" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' -e 's/^["'\'']//' -e 's/["'\'']$//')"
+            if [ -n "$item" ] && [[ ! "$item" =~ ^# ]]; then
+                FILE_TASKS+=("$item")
+            fi
+        fi
+    done < "$SWARM_SH"
 fi
 
-if [ ${#TASKS[@]} -eq 0 ] && [ -f "$TASKS_FILE" ]; then
+if [ ${#CLI_TASKS[@]} -gt 0 ]; then
+    RAW_TASKS=("${CLI_TASKS[@]}")
+elif [ ${#FILE_TASKS[@]} -gt 0 ]; then
+    RAW_TASKS=("${FILE_TASKS[@]}")
+elif [ ${#TASKS[@]} -gt 0 ]; then
+    RAW_TASKS=("${TASKS[@]}")
+elif [ -f "$TASKS_FILE" ]; then
+    RAW_TASKS=()
     while IFS= read -r line || [ -n "$line" ]; do
         line="$(echo "$line" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
         [ -z "$line" ] || [[ "$line" =~ ^# ]] && continue
-        TASKS+=("$line")
+        RAW_TASKS+=("$line")
     done < "$TASKS_FILE"
+else
+    RAW_TASKS=()
 fi
 
-if [ ${#TASKS[@]} -eq 0 ]; then
+if [ ${#RAW_TASKS[@]} -eq 0 ]; then
     echo "Target Project: $REPO_NAME ($BASE_DIR)"
     echo "No swarm tasks specified."
     read -rp "Enter task name(s) separated by spaces (e.g. auth ui backend): " input_tasks
@@ -102,8 +133,25 @@ if [ ${#TASKS[@]} -eq 0 ]; then
         echo "No tasks provided. Aborting."
         exit 1
     fi
-    TASKS=("${PROMPTED_TASKS[@]}")
+    RAW_TASKS=("${PROMPTED_TASKS[@]}")
 fi
+
+# Normalize task names (spaces to hyphens for valid git refs) and deduplicate
+TASKS=()
+for t in "${RAW_TASKS[@]}"; do
+    clean_task="$(echo "$t" | tr ' ' '-' | tr -s '-')"
+    [ -z "$clean_task" ] && continue
+    found=false
+    for existing in "${TASKS[@]}"; do
+        if [ "$existing" = "$clean_task" ]; then
+            found=true
+            break
+        fi
+    done
+    if [ "$found" = false ]; then
+        TASKS+=("$clean_task")
+    fi
+done
 
 mkdir -p "$SWARM_ROOT"
 touch "$TASKS_FILE"
@@ -121,16 +169,28 @@ echo " Swarm Root        : $SWARM_ROOT"
 echo " Tasks             : ${TASKS[*]}"
 echo "=========================================================="
 
+NEW_SPAWNED=0
+SKIPPED_EXISTING=0
+
 for task in "${TASKS[@]}"; do
     WORKTREE_DIR="$SWARM_ROOT/$task"
     BRANCH_NAME="swarm/$task"
 
     echo "----------------------------------------------------------"
-    echo "Setting up workspace for task: [$task]"
+    echo "Checking workspace for task: [$task]"
 
+    is_new=false
     if [ -d "$WORKTREE_DIR" ]; then
-        echo "  [*] Worktree directory already exists, reusing: $WORKTREE_DIR"
+        if [ "$FORCE_SPAWN" = true ]; then
+            echo "  [*] Worktree directory exists, force re-spawning terminal: $WORKTREE_DIR"
+        else
+            echo "  [*] Workspace already active at: $WORKTREE_DIR"
+            echo "      (Skipping terminal spawn; use --force to re-spawn)"
+            ((SKIPPED_EXISTING++)) || true
+            continue
+        fi
     else
+        is_new=true
         if git -C "$BASE_DIR" show-ref --verify --quiet "refs/heads/$BRANCH_NAME"; then
             git -C "$BASE_DIR" worktree add "$WORKTREE_DIR" "$BRANCH_NAME"
         else
@@ -152,9 +212,15 @@ for task in "${TASKS[@]}"; do
     fi
 
     launch_terminal "$WORKTREE_DIR" "$task" "$BRANCH_NAME" "$AGENT_CMD"
+    ((NEW_SPAWNED++)) || true
 done
 
 echo "----------------------------------------------------------"
-echo "All agents dispatched! Happy experimenting~"
+if [ "$NEW_SPAWNED" -gt 0 ]; then
+    echo "$NEW_SPAWNED agent(s) dispatched!"
+fi
+if [ "$SKIPPED_EXISTING" -gt 0 ]; then
+    echo "$SKIPPED_EXISTING workspace(s) already active (skipped duplicate terminal spawn)."
+fi
 echo "To test/merge changes: run './test-swarm.sh' (or 'swarm.sh test')"
 echo "To clean up: run './clean.sh' (or 'swarm.sh clean')"

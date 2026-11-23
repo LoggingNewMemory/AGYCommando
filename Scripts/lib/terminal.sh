@@ -11,15 +11,15 @@ launch_terminal() {
     local cmd="echo '==> Task: $task_name ($branch_name)'; echo '==> Worktree: $worktree_dir'; $agent_cmd; exec $USER_SHELL"
 
     if command -v konsole &>/dev/null; then
-        konsole --new-tab --workdir "$worktree_dir" -p tabtitle="Swarm: $task_name" -e "$USER_SHELL" -c "$cmd" &
+        konsole --new-tab --workdir "$worktree_dir" -p tabtitle="Swarm: $task_name" -e "$USER_SHELL" -c "$cmd" &>/dev/null &
         sleep 0.2
         echo "  [+] Spawned Konsole tab: $task_name"
     elif command -v gnome-terminal &>/dev/null; then
-        gnome-terminal --tab --title="Swarm: $task_name" --working-directory="$worktree_dir" -- "$USER_SHELL" -c "$cmd" &
+        gnome-terminal --tab --title="Swarm: $task_name" --working-directory="$worktree_dir" -- "$USER_SHELL" -c "$cmd" &>/dev/null &
         sleep 0.2
         echo "  [+] Spawned GNOME Terminal tab: $task_name"
     elif [ -n "$TERMINAL" ] && command -v "$TERMINAL" &>/dev/null; then
-        "$TERMINAL" -e "$USER_SHELL -c 'cd \"$worktree_dir\" && $cmd'" &
+        "$TERMINAL" -e "$USER_SHELL -c 'cd \"$worktree_dir\" && $cmd'" &>/dev/null &
         echo "  [+] Spawned terminal ($TERMINAL): $task_name"
     else
         echo "  [!] Worktree ready at: $worktree_dir"

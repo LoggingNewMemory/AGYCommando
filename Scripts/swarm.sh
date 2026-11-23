@@ -81,13 +81,14 @@ resolve_target_repo() {
         if [ -n "$BASE_DIR" ]; then return 0; fi
     fi
 
-    local current_git parent_git
+    local current_git repo_root parent_repo
     current_git="$(git rev-parse --show-toplevel 2>/dev/null || true)"
-    parent_git="$(git -C "$SCRIPT_DIR/.." rev-parse --show-toplevel 2>/dev/null || true)"
+    repo_root="$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel 2>/dev/null || true)"
+    parent_repo="$(git -C "$repo_root/.." rev-parse --show-toplevel 2>/dev/null || true)"
 
-    if [ -n "$parent_git" ] && [ "$parent_git" != "$SCRIPT_DIR" ]; then
-        if [ "$current_git" = "$parent_git" ] || [ "$current_git" = "$SCRIPT_DIR" ] || [ -z "$current_git" ]; then
-            BASE_DIR="$parent_git"
+    if [ -n "$parent_repo" ] && [ "$parent_repo" != "$repo_root" ]; then
+        if [ "$current_git" = "$parent_repo" ] || [ "$current_git" = "$repo_root" ] || [ -z "$current_git" ]; then
+            BASE_DIR="$parent_repo"
             return 0
         fi
     fi
@@ -97,12 +98,12 @@ resolve_target_repo() {
         return 0
     fi
 
-    if [ -n "$parent_git" ]; then
-        BASE_DIR="$parent_git"
+    if [ -n "$parent_repo" ]; then
+        BASE_DIR="$parent_repo"
         return 0
     fi
 
-    BASE_DIR="$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel 2>/dev/null || true)"
+    BASE_DIR="$repo_root"
 }
 
 resolve_target_repo
@@ -117,7 +118,8 @@ REPO_NAME="$(basename "$BASE_DIR")"
 SWARM_ROOT="$(dirname "$BASE_DIR")/.${REPO_NAME}-swarm"
 TASKS_FILE="$SWARM_ROOT/tasks.list"
 
-TOOL_FOLDER_NAME="$(basename "$SCRIPT_DIR")"
+REPO_ROOT="$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel 2>/dev/null || true)"
+TOOL_FOLDER_NAME="$(basename "${REPO_ROOT:-$SCRIPT_DIR}")"
 if [[ "$SCRIPT_DIR" == "$BASE_DIR/"* ]] && [ -d "$BASE_DIR/.git/info" ]; then
     EXCLUDE_FILE="$BASE_DIR/.git/info/exclude"
     if ! grep -qFx "$TOOL_FOLDER_NAME/" "$EXCLUDE_FILE" 2>/dev/null; then

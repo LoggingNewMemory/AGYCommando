@@ -2,10 +2,6 @@
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SWARM_SH="$SCRIPT_DIR/swarm.sh"
-
-# ==========================================
-# Target Git Repository Resolution
-# ==========================================
 TARGET_DIR=""
 
 while [ $# -gt 0 ]; do
@@ -41,7 +37,6 @@ resolve_target_repo() {
     current_git="$(git rev-parse --show-toplevel 2>/dev/null || true)"
     parent_git="$(git -C "$SCRIPT_DIR/.." rev-parse --show-toplevel 2>/dev/null || true)"
 
-    # If this script folder is nested inside another git repo (e.g. cloned inside AnyaDisableThermal)
     if [ -n "$parent_git" ] && [ "$parent_git" != "$SCRIPT_DIR" ]; then
         if [ "$current_git" = "$parent_git" ] || [ "$current_git" = "$SCRIPT_DIR" ] || [ -z "$current_git" ]; then
             BASE_DIR="$parent_git"
@@ -75,7 +70,6 @@ SWARM_ROOT="$(dirname "$BASE_DIR")/.${REPO_NAME}-swarm"
 TASKS_FILE="$SWARM_ROOT/tasks.list"
 TOOL_FOLDER_NAME="$(basename "$SCRIPT_DIR")"
 
-# If SCRIPT_DIR is inside BASE_DIR, ensure it is ignored locally so git stays clean
 if [[ "$SCRIPT_DIR" == "$BASE_DIR/"* ]] && [ -d "$BASE_DIR/.git/info" ]; then
     EXCLUDE_FILE="$BASE_DIR/.git/info/exclude"
     if ! grep -qFx "$TOOL_FOLDER_NAME/" "$EXCLUDE_FILE" 2>/dev/null; then
@@ -83,16 +77,11 @@ if [[ "$SCRIPT_DIR" == "$BASE_DIR/"* ]] && [ -d "$BASE_DIR/.git/info" ]; then
     fi
 fi
 
-# Automatic conflict resolution modes:
-# "union"  = Combine both versions without <<<<<<< markers (best default for merging multiple tasks)
-# "theirs" = Favor incoming agent changes (overwrite conflicting lines)
-# "force"  = Directly copy-overwrite entire files from agent to Main Tree (100% identical to agent worktree)
 CONFLICT_MODE="theirs"
 
 load_tasks() {
     TASKS=()
 
-    # 1. From project's tasks.list
     if [ -f "$TASKS_FILE" ]; then
         while IFS= read -r line || [ -n "$line" ]; do
             line="$(echo "$line" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
@@ -105,7 +94,6 @@ load_tasks() {
         done < "$TASKS_FILE"
     fi
 
-    # 2. From worktree directories
     if [ -d "$SWARM_ROOT" ]; then
         for dir in "$SWARM_ROOT"/*/; do
             [ -d "$dir" ] || continue
@@ -119,7 +107,6 @@ load_tasks() {
         done
     fi
 
-    # 3. From git branches matching swarm/*
     while IFS= read -r branch; do
         [ -n "$branch" ] || continue
         local task="${branch#refs/heads/swarm/}"
@@ -130,7 +117,6 @@ load_tasks() {
         if [ "$found" = false ]; then TASKS+=("$task"); fi
     done < <(git -C "$BASE_DIR" for-each-ref --format='%(refname)' refs/heads/swarm/ 2>/dev/null)
 
-    # 4. Fallback to swarm.sh TASKS=(...) if defined
     if [ -f "$SWARM_SH" ]; then
         local FILE_TASKS=()
         eval "$(sed -n '/^TASKS=(/,/)/p' "$SWARM_SH" 2>/dev/null | sed 's/TASKS=(/FILE_TASKS=(/' || true)"

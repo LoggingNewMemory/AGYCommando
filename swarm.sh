@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 set -e
 
-# You can define tasks here, or pass them as CLI arguments (e.g. ./swarm.sh auth ui)
 TASKS=(
 )
 
@@ -35,7 +34,6 @@ EOF
     exit 0
 }
 
-# Parse CLI options and arguments
 while [ $# -gt 0 ]; do
     case "$1" in
         test)
@@ -70,7 +68,6 @@ while [ $# -gt 0 ]; do
     shift 2>/dev/null || break
 done
 
-# If first positional argument is an existing git repo directory, use it as TARGET_DIR
 if [ -z "$TARGET_DIR" ] && [ ${#CLI_TASKS[@]} -gt 0 ]; then
     if [ -d "${CLI_TASKS[0]}" ] && git -C "${CLI_TASKS[0]}" rev-parse --show-toplevel &>/dev/null; then
         TARGET_DIR="${CLI_TASKS[0]}"
@@ -78,9 +75,6 @@ if [ -z "$TARGET_DIR" ] && [ ${#CLI_TASKS[@]} -gt 0 ]; then
     fi
 fi
 
-# ==========================================
-# Target Git Repository Resolution
-# ==========================================
 resolve_target_repo() {
     if [ -n "$TARGET_DIR" ]; then
         BASE_DIR="$(git -C "$TARGET_DIR" rev-parse --show-toplevel 2>/dev/null || true)"
@@ -91,7 +85,6 @@ resolve_target_repo() {
     current_git="$(git rev-parse --show-toplevel 2>/dev/null || true)"
     parent_git="$(git -C "$SCRIPT_DIR/.." rev-parse --show-toplevel 2>/dev/null || true)"
 
-    # If this script folder is nested inside another git repo (e.g. cloned inside AnyaDisableThermal)
     if [ -n "$parent_git" ] && [ "$parent_git" != "$SCRIPT_DIR" ]; then
         if [ "$current_git" = "$parent_git" ] || [ "$current_git" = "$SCRIPT_DIR" ] || [ -z "$current_git" ]; then
             BASE_DIR="$parent_git"
@@ -124,7 +117,6 @@ REPO_NAME="$(basename "$BASE_DIR")"
 SWARM_ROOT="$(dirname "$BASE_DIR")/.${REPO_NAME}-swarm"
 TASKS_FILE="$SWARM_ROOT/tasks.list"
 
-# If SCRIPT_DIR is inside BASE_DIR, ensure it is ignored locally so git stays clean
 TOOL_FOLDER_NAME="$(basename "$SCRIPT_DIR")"
 if [[ "$SCRIPT_DIR" == "$BASE_DIR/"* ]] && [ -d "$BASE_DIR/.git/info" ]; then
     EXCLUDE_FILE="$BASE_DIR/.git/info/exclude"
@@ -133,15 +125,10 @@ if [[ "$SCRIPT_DIR" == "$BASE_DIR/"* ]] && [ -d "$BASE_DIR/.git/info" ]; then
     fi
 fi
 
-# ==========================================
-# Task Collection
-# ==========================================
-# 1. CLI arguments take precedence
 if [ ${#CLI_TASKS[@]} -gt 0 ]; then
     TASKS=("${CLI_TASKS[@]}")
 fi
 
-# 2. Check existing tasks.list
 if [ ${#TASKS[@]} -eq 0 ] && [ -f "$TASKS_FILE" ]; then
     while IFS= read -r line || [ -n "$line" ]; do
         line="$(echo "$line" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
@@ -150,7 +137,6 @@ if [ ${#TASKS[@]} -eq 0 ] && [ -f "$TASKS_FILE" ]; then
     done < "$TASKS_FILE"
 fi
 
-# 3. Prompt interactively if still empty
 if [ ${#TASKS[@]} -eq 0 ]; then
     echo "Target Project: $REPO_NAME ($BASE_DIR)"
     echo "No swarm tasks specified."
@@ -166,16 +152,12 @@ fi
 mkdir -p "$SWARM_ROOT"
 touch "$TASKS_FILE"
 
-# Save tasks to project tasks.list (ensuring unique entries)
 for task in "${TASKS[@]}"; do
     if ! grep -qFx "$task" "$TASKS_FILE" 2>/dev/null; then
         echo "$task" >> "$TASKS_FILE"
     fi
 done
 
-# ==========================================
-# Terminal & Agent Spawning Helper
-# ==========================================
 AGENT_CMD="${CUSTOM_AGENT_CMD:-${SWARM_AGENT_CMD:-agy --dangerously-skip-permissions}}"
 
 detect_shell() {
@@ -240,9 +222,6 @@ launch_terminal() {
     fi
 }
 
-# ==========================================
-# Main Swarm Worktree Initialization
-# ==========================================
 echo "=========================================================="
 echo " Starting Agentic Swarm for: $REPO_NAME"
 echo " Target Repository : $BASE_DIR"
@@ -268,7 +247,6 @@ for task in "${TASKS[@]}"; do
         echo "  [+] Created worktree on branch '$BRANCH_NAME'"
     fi
 
-    # Symlink shared dependency caches if present
     if [ -d "$BASE_DIR/node_modules" ] && [ ! -e "$WORKTREE_DIR/node_modules" ]; then
         ln -s "$BASE_DIR/node_modules" "$WORKTREE_DIR/node_modules"
         echo "  [+] Symlinked node_modules"
@@ -281,7 +259,6 @@ for task in "${TASKS[@]}"; do
         echo "  [+] Symlinked venv"
     fi
 
-    # Launch agent in new terminal tab/window
     launch_terminal "$WORKTREE_DIR" "$task" "$BRANCH_NAME"
 done
 

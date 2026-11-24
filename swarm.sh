@@ -153,10 +153,17 @@ if [ ${#RAW_TASKS[@]} -eq 0 ]; then
     RAW_TASKS=("${PROMPTED_TASKS[@]}")
 fi
 
-# Normalize task names (spaces to hyphens for valid git refs) and deduplicate
+# Normalize task names (spaces/slashes to hyphens for valid git refs) and deduplicate
 TASKS=()
 for t in "${RAW_TASKS[@]}"; do
-    clean_task="$(echo "$t" | tr ' ' '-' | tr -s '-')"
+    local_task="$(echo "$t" | tr ' ' '-' | tr -s '-')"
+    if [ -d "$SWARM_ROOT/$local_task" ] || git -C "$BASE_DIR" show-ref --verify --quiet "refs/heads/swarm/$local_task" 2>/dev/null; then
+        clean_task="$local_task"
+    else
+        clean_task="$(echo "$t" | tr ' /' '--' | tr -s '-')"
+        clean_task="${clean_task#-}"
+        clean_task="${clean_task%-}"
+    fi
     [ -z "$clean_task" ] && continue
     found=false
     for existing in "${TASKS[@]}"; do
@@ -197,7 +204,7 @@ for task in "${TASKS[@]}"; do
     echo "Checking workspace for task: [$task]"
 
     is_new=false
-    if [ -d "$WORKTREE_DIR" ]; then
+    if is_worktree "$WORKTREE_DIR"; then
         if [ "$FORCE_SPAWN" = true ]; then
             echo "  [*] Worktree directory exists, force re-spawning terminal: $WORKTREE_DIR"
         else
@@ -207,6 +214,9 @@ for task in "${TASKS[@]}"; do
             continue
         fi
     else
+        if [ -d "$WORKTREE_DIR" ]; then
+            rm -rf "$WORKTREE_DIR"
+        fi
         is_new=true
         if git -C "$BASE_DIR" show-ref --verify --quiet "refs/heads/$BRANCH_NAME"; then
             git -C "$BASE_DIR" worktree add "$WORKTREE_DIR" "$BRANCH_NAME"

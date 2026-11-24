@@ -20,6 +20,11 @@
 LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIPT_DIR="$(cd "$LIB_DIR/.." && pwd)"
 
+is_worktree() {
+    local dir="$1"
+    [ -n "$dir" ] && [ -d "$dir" ] && [ -e "$dir/.git" ] && git -C "$dir" rev-parse --is-inside-work-tree &>/dev/null
+}
+
 resolve_target_repo() {
     if [ -n "$TARGET_DIR" ]; then
         BASE_DIR="$(git -C "$TARGET_DIR" rev-parse --show-toplevel 2>/dev/null || true)"
@@ -90,17 +95,34 @@ load_tasks() {
         done < "$TASKS_FILE"
     fi
 
+    while IFS= read -r line; do
+        if [[ "$line" =~ ^worktree[[:space:]]+(.*)$ ]]; then
+            local wt_path="${BASH_REMATCH[1]}"
+            if [[ "$wt_path" == "$SWARM_ROOT/"* ]]; then
+                local task="${wt_path#$SWARM_ROOT/}"
+                local found=false
+                for t in "${TASKS[@]}"; do
+                    if [ "$t" = "$task" ]; then found=true; break; fi
+                done
+                if [ "$found" = false ]; then TASKS+=("$task"); fi
+            fi
+        fi
+    done < <(git -C "$BASE_DIR" worktree list --porcelain 2>/dev/null)
+
     if [ -d "$SWARM_ROOT" ]; then
-        for dir in "$SWARM_ROOT"/*/; do
-            [ -d "$dir" ] || continue
-            local task
-            task="$(basename "$dir")"
-            local found=false
-            for t in "${TASKS[@]}"; do
-                if [ "$t" = "$task" ]; then found=true; break; fi
-            done
-            if [ "$found" = false ]; then TASKS+=("$task"); fi
-        done
+        while IFS= read -r git_entry; do
+            [ -n "$git_entry" ] || continue
+            local dir
+            dir="$(dirname "$git_entry")"
+            if is_worktree "$dir"; then
+                local task="${dir#$SWARM_ROOT/}"
+                local found=false
+                for t in "${TASKS[@]}"; do
+                    if [ "$t" = "$task" ]; then found=true; break; fi
+                done
+                if [ "$found" = false ]; then TASKS+=("$task"); fi
+            fi
+        done < <(find "$SWARM_ROOT" -mindepth 2 -name .git 2>/dev/null)
     fi
 
     while IFS= read -r branch; do

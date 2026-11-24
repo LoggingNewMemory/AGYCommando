@@ -19,20 +19,25 @@
 
 prepare_worktree_diff() {
     local wt_dir="$1"
-    git -C "$wt_dir" add -N . 2>/dev/null || true
-    git -C "$wt_dir" reset -q HEAD -- node_modules .venv venv "$TOOL_FOLDER_NAME" 2>/dev/null || true
+    if is_worktree "$wt_dir"; then
+        git -C "$wt_dir" add -N . 2>/dev/null || true
+        git -C "$wt_dir" reset -q HEAD -- node_modules .venv venv "$TOOL_FOLDER_NAME" 2>/dev/null || true
+    fi
 }
 
 get_base_commit() {
     local wt_dir="$1"
+    if ! is_worktree "$wt_dir"; then
+        return 1
+    fi
     local wt_head main_head base
-    wt_head="$(git -C "$wt_dir" rev-parse HEAD 2>/dev/null)" || { echo "HEAD"; return; }
-    main_head="$(git -C "$BASE_DIR" rev-parse HEAD 2>/dev/null)" || { echo "HEAD"; return; }
+    wt_head="$(git -C "$wt_dir" rev-parse HEAD 2>/dev/null)" || return 1
+    main_head="$(git -C "$BASE_DIR" rev-parse HEAD 2>/dev/null)" || { echo "$wt_head"; return 0; }
     base="$(git -C "$BASE_DIR" merge-base "$main_head" "$wt_head" 2>/dev/null)"
     if [ -n "$base" ]; then
         echo "$base"
     else
-        echo "HEAD"
+        echo "$main_head"
     fi
 }
 
@@ -40,8 +45,8 @@ apply_task() {
     local task="$1"
     local wt_dir="$SWARM_ROOT/$task"
 
-    if [ ! -d "$wt_dir" ]; then
-        echo "Worktree directory for [$task] not found at $wt_dir!"
+    if ! is_worktree "$wt_dir"; then
+        echo "Valid worktree for [$task] not found at $wt_dir!"
         return 1
     fi
 
@@ -50,8 +55,12 @@ apply_task() {
 
     local base_commit
     base_commit="$(get_base_commit "$wt_dir")"
+    if [ -z "$base_commit" ]; then
+        echo "Could not determine base commit for [$task]."
+        return 1
+    fi
 
-    mapfile -t changed_files < <(git -C "$wt_dir" diff --name-only "$base_commit" -- . ':(exclude)node_modules' ':(exclude).venv' ':(exclude)venv' ":(exclude)$TOOL_FOLDER_NAME")
+    mapfile -t changed_files < <(git -C "$wt_dir" diff --name-only "$base_commit" -- . ':(exclude)node_modules' ':(exclude).venv' ':(exclude)venv' ":(exclude)$TOOL_FOLDER_NAME" 2>/dev/null)
 
     if [ ${#changed_files[@]} -eq 0 ]; then
         echo "Agent [$task] has not made any code changes (empty)."
@@ -102,18 +111,27 @@ unapply_task() {
     local task="$1"
     local wt_dir="$SWARM_ROOT/$task"
 
+    if ! is_worktree "$wt_dir"; then
+        echo "Valid worktree for [$task] not found at $wt_dir!"
+        return 1
+    fi
+
     echo "Reverting changes from [$task] in Main Tree..."
     prepare_worktree_diff "$wt_dir"
 
     local base_commit
     base_commit="$(get_base_commit "$wt_dir")"
+    if [ -z "$base_commit" ]; then
+        echo "Could not determine base commit for [$task]."
+        return 1
+    fi
 
-    if git -C "$wt_dir" diff "$base_commit" -- . ':(exclude)node_modules' ':(exclude).venv' ':(exclude)venv' ":(exclude)$TOOL_FOLDER_NAME" | git -C "$BASE_DIR" apply -R --3way --whitespace=nowarn - 2>/dev/null; then
+    if git -C "$wt_dir" diff "$base_commit" -- . ':(exclude)node_modules' ':(exclude).venv' ':(exclude)venv' ":(exclude)$TOOL_FOLDER_NAME" 2>/dev/null | git -C "$BASE_DIR" apply -R --3way --whitespace=nowarn - 2>/dev/null; then
         git -C "$BASE_DIR" reset -q HEAD 2>/dev/null || true
         echo "Changes from [$task] successfully removed from Main Tree!"
     else
         echo "Failed to revert patch with git apply -R, restoring touched files of [$task] to HEAD..."
-        mapfile -t changed_files < <(git -C "$wt_dir" diff --name-only "$base_commit" -- . ':(exclude)node_modules' ':(exclude).venv' ':(exclude)venv' ":(exclude)$TOOL_FOLDER_NAME")
+        mapfile -t changed_files < <(git -C "$wt_dir" diff --name-only "$base_commit" -- . ':(exclude)node_modules' ':(exclude).venv' ':(exclude)venv' ":(exclude)$TOOL_FOLDER_NAME" 2>/dev/null)
         for file in "${changed_files[@]}"; do
             if git -C "$BASE_DIR" cat-file -e "HEAD:$file" 2>/dev/null; then
                 git -C "$BASE_DIR" checkout HEAD -- "$file" 2>/dev/null
@@ -131,18 +149,24 @@ show_summary() {
     for i in "${!TASKS[@]}"; do
         local t="${TASKS[$i]}"
         local wt_dir="$SWARM_ROOT/$t"
-        if [ -d "$wt_dir" ]; then
+        if is_worktree "$wt_dir"; then
             prepare_worktree_diff "$wt_dir"
             local base_commit
             base_commit="$(get_base_commit "$wt_dir")"
-            local stat
-            stat="$(git -C "$wt_dir" diff --shortstat "$base_commit" -- . ':(exclude)node_modules' ':(exclude).venv' ':(exclude)venv' ":(exclude)$TOOL_FOLDER_NAME")"
-            if [ -n "$stat" ]; then
-                echo "  [$((i+1))] $t :$stat"
-                git -C "$wt_dir" diff --name-status "$base_commit" -- . ':(exclude)node_modules' ':(exclude).venv' ':(exclude)venv' ":(exclude)$TOOL_FOLDER_NAME" | sed 's/^/       /'
+            if [ -n "$base_commit" ]; then
+                local stat
+                stat="$(git -C "$wt_dir" diff --shortstat "$base_commit" -- . ':(exclude)node_modules' ':(exclude).venv' ':(exclude)venv' ":(exclude)$TOOL_FOLDER_NAME" 2>/dev/null)"
+                if [ -n "$stat" ]; then
+                    echo "  [$((i+1))] $t :$stat"
+                    git -C "$wt_dir" diff --name-status "$base_commit" -- . ':(exclude)node_modules' ':(exclude).venv' ':(exclude)venv' ":(exclude)$TOOL_FOLDER_NAME" 2>/dev/null | sed 's/^/       /'
+                else
+                    echo "  [$((i+1))] $t : (No changes)"
+                fi
             else
-                echo "  [$((i+1))] $t : (No changes)"
+                echo "  [$((i+1))] $t : (Could not determine base commit)"
             fi
+        elif [ -d "$wt_dir" ]; then
+            echo "  [$((i+1))] $t : (Invalid worktree)"
         else
             echo "  [$((i+1))] $t : (Worktree not found)"
         fi

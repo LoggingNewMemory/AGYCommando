@@ -38,6 +38,11 @@ clean_task() {
     if [ -d "$wt_dir" ]; then
         echo "  [+] Removing worktree: $task..."
         git -C "$BASE_DIR" worktree remove --force "$wt_dir" 2>/dev/null || rm -rf "$wt_dir"
+        local parent_dir="$(dirname "$wt_dir")"
+        while [ "$parent_dir" != "$SWARM_ROOT" ] && [ "$parent_dir" != "/" ] && [ -d "$parent_dir" ]; do
+            rmdir "$parent_dir" 2>/dev/null || break
+            parent_dir="$(dirname "$parent_dir")"
+        done
     else
         echo "  [*] Worktree directory $task does not exist."
     fi
@@ -52,11 +57,16 @@ clean_task() {
     fi
 
     if [ -f "$TASKS_FILE" ]; then
-        sed -i "/^${task}$/d" "$TASKS_FILE"
+        local tmp_tasks
+        tmp_tasks="$(mktemp)"
+        grep -vFx "$task" "$TASKS_FILE" > "$tmp_tasks" 2>/dev/null || true
+        mv -f "$tmp_tasks" "$TASKS_FILE"
     fi
 
     if [ -n "$SWARM_SH" ] && [ -f "$SWARM_SH" ]; then
-        sed -i -E "/^[[:space:]]*[\"']?$(echo "$task" | sed 's/-/[- ]/g')[\"']?[[:space:]]*$/d" "$SWARM_SH" 2>/dev/null || true
+        local escaped_task
+        escaped_task="$(echo "$task" | sed 's/[][\/.^$*]/\\&/g')"
+        sed -i -E "\|^[[:space:]]*[\"']?${escaped_task}[\"']?[[:space:]]*$|d" "$SWARM_SH" 2>/dev/null || true
     fi
 
     git -C "$BASE_DIR" worktree prune 2>/dev/null || true

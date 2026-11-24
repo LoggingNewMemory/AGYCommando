@@ -86,8 +86,10 @@ while true; do
         branch_name="swarm/$t"
 
         wt_status="Missing"
-        if [ -d "$wt_dir" ]; then
+        if is_worktree "$wt_dir"; then
             wt_status="Exists"
+        elif [ -d "$wt_dir" ]; then
+            wt_status="Invalid"
         fi
 
         br_status="Missing"

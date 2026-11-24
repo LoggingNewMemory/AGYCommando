@@ -90,6 +90,8 @@ while [ $# -gt 0 ]; do
     shift 2>/dev/null || break
 done
 
+clear 2>/dev/null || true
+
 if [ -z "$TARGET_DIR" ] && [ ${#CLI_TASKS[@]} -gt 0 ]; then
     if [ -d "${CLI_TASKS[0]}" ] && git -C "${CLI_TASKS[0]}" rev-parse --show-toplevel &>/dev/null; then
         TARGET_DIR="${CLI_TASKS[0]}"

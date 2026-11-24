@@ -55,6 +55,8 @@ while [ $# -gt 0 ]; do
     shift 2>/dev/null || break
 done
 
+clear 2>/dev/null || true
+
 source "$SCRIPT_DIR/lib/core.sh"
 init_swarm_env
 source "$SCRIPT_DIR/lib/cleanup.sh"
@@ -70,6 +72,7 @@ if [ -n "$CLI_TASK" ]; then
 fi
 
 while true; do
+    clear 2>/dev/null || true
     load_tasks
 
     if [ ${#TASKS[@]} -eq 0 ]; then
@@ -114,6 +117,8 @@ while true; do
     read -rp "Select task to clean (1-${#TASKS[@]}/a/q): " choice || break
 
     case "$choice" in
+        "")
+            ;;
         [1-9]*)
             idx=$((choice - 1))
             if [ "$idx" -ge 0 ] && [ "$idx" -lt "${#TASKS[@]}" ]; then
@@ -122,11 +127,15 @@ while true; do
             else
                 echo "Invalid number!"
             fi
+            echo ""
+            read -rp "Press Enter to continue..." _ || break
             ;;
         a|A)
             read -rp "Are you sure you want to clean ALL tasks? (y/N): " confirm_all || break
             if [[ "$confirm_all" =~ ^[Yy]$ ]]; then
                 clean_all true
+                echo ""
+                read -rp "Press Enter to continue..." _ || break
             fi
             ;;
         q|Q)
@@ -135,6 +144,7 @@ while true; do
             ;;
         *)
             echo "Unrecognized option!"
+            sleep 1
             ;;
     esac
 done

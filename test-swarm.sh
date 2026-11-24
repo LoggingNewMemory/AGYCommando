@@ -43,6 +43,8 @@ while [ $# -gt 0 ]; do
     shift 2>/dev/null || break
 done
 
+clear 2>/dev/null || true
+
 source "$SCRIPT_DIR/lib/core.sh"
 init_swarm_env
 source "$SCRIPT_DIR/lib/merge.sh"
@@ -59,6 +61,7 @@ if [ ${#TASKS[@]} -eq 0 ]; then
 fi
 
 while true; do
+    clear 2>/dev/null || true
     load_tasks
 
     if [ ${#TASKS[@]} -eq 0 ]; then
@@ -108,6 +111,8 @@ while true; do
     read -rp "Choose an action (1-${#TASKS[@]}/a/m/u/s/r/q): " choice || break
 
     case "$choice" in
+        "")
+            ;;
         [1-9]*)
             idx=$((choice - 1))
             if [ "$idx" -ge 0 ] && [ "$idx" -lt "${#TASKS[@]}" ]; then
@@ -115,12 +120,16 @@ while true; do
             else
                 echo "Invalid number!"
             fi
+            echo ""
+            read -rp "Press Enter to continue..." _ || break
             ;;
         a|A)
             echo "Pulling all tasks sequentially..."
             for t in "${TASKS[@]}"; do
                 apply_task "$t"
             done
+            echo ""
+            read -rp "Press Enter to continue..." _ || break
             ;;
         m|M)
             if [ "$CONFLICT_MODE" = "union" ]; then
@@ -140,9 +149,13 @@ while true; do
             else
                 echo "Invalid number!"
             fi
+            echo ""
+            read -rp "Press Enter to continue..." _ || break
             ;;
         s|S)
             show_summary
+            echo ""
+            read -rp "Press Enter to continue..." _ || break
             ;;
         r|R)
             read -rp "Are you sure you want to reset all uncommitted changes in Main Tree? (y/N): " confirm || break
@@ -150,6 +163,8 @@ while true; do
                 git -C "$BASE_DIR" reset --hard HEAD
                 git -C "$BASE_DIR" clean -fd -e "$TOOL_FOLDER_NAME"
                 echo "Main Tree is clean again! (Original code in Swarm worktrees remains 100% safe!)"
+                echo ""
+                read -rp "Press Enter to continue..." _ || break
             fi
             ;;
         q|Q)
@@ -158,6 +173,7 @@ while true; do
             ;;
         *)
             echo "Unrecognized option!"
+            sleep 1
             ;;
     esac
 done

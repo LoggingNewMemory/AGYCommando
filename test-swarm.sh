@@ -70,6 +70,13 @@ while true; do
     echo "=== ZERO-CONFLICT SWARM MENU ($REPO_NAME) ==="
     echo "  Current Mode: [$CONFLICT_MODE] (Type 'm' to switch mode)"
     echo "-------------------------------------------"
+    max_len=14
+    for t in "${TASKS[@]}"; do
+        if [ ${#t} -gt $max_len ]; then
+            max_len=${#t}
+        fi
+    done
+
     for i in "${!TASKS[@]}"; do
         t="${TASKS[$i]}"
         wt_dir="$SWARM_ROOT/$t"
@@ -88,7 +95,7 @@ while true; do
         else
             status_badge="Missing"
         fi
-        printf "  [%d] Pull %-14s (%s)\n" "$((i+1))" "$t" "$status_badge"
+        printf "  [%d] Pull %-${max_len}s (%s)\n" "$((i+1))" "$t" "$status_badge"
     done
     echo "-------------------------------------------"
     echo "  [a] Pull ALL tasks into Main Tree"

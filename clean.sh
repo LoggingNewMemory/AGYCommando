@@ -80,6 +80,13 @@ while true; do
 
     echo ""
     echo "=== SWARM CLEANUP MENU ($REPO_NAME) ==="
+    max_len=14
+    for t in "${TASKS[@]}"; do
+        if [ ${#t} -gt $max_len ]; then
+            max_len=${#t}
+        fi
+    done
+
     for i in "${!TASKS[@]}"; do
         t="${TASKS[$i]}"
         wt_dir="$SWARM_ROOT/$t"
@@ -97,7 +104,7 @@ while true; do
             br_status="Exists"
         fi
 
-        printf "  [%d] %-14s (Worktree: %-9s | Branch: %s)\n" "$((i+1))" "$t" "$wt_status" "$br_status"
+        printf "  [%d] %-${max_len}s (Worktree: %-9s | Branch: %s)\n" "$((i+1))" "$t" "$wt_status" "$br_status"
     done
 
     echo "-------------------------------------------"

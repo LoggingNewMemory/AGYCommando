@@ -33,6 +33,29 @@ AGYCommando can be used in any project:
 
 > **Note**: AGYCommando does not use hardcoded paths and automatically detects the target host repository.
 
+## Updating AGYCommando
+
+To update AGYCommando to the latest version:
+
+- **Standard update**:
+  ```bash
+  cd AGYCommando && git pull
+  ```
+  Or directly from your project root:
+  ```bash
+  git -C AGYCommando pull
+  ```
+
+- **Force update (overwrite local changes)**:
+  If you modified files (such as `swarm.sh`) and want to discard local edits to match upstream:
+  ```bash
+  cd AGYCommando && git fetch origin && git reset --hard origin/main
+  ```
+  Or directly from your project root:
+  ```bash
+  git -C AGYCommando fetch origin && git -C AGYCommando reset --hard origin/main
+  ```
+
 ## Autonomous Execution & Permissions Notice
 
 > [!WARNING]

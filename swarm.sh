@@ -108,6 +108,14 @@ FILE_TASKS=()
 if [ -n "$SWARM_SH" ] && [ -f "$SWARM_SH" ]; then
     in_block=false
     while IFS= read -r line || [ -n "$line" ]; do
+        if [[ "$line" =~ ^[[:space:]]*TASKS=\((.*)\)[[:space:]]*$ ]]; then
+            inline_items=()
+            eval "inline_items=(${BASH_REMATCH[1]})" 2>/dev/null || read -ra inline_items <<< "${BASH_REMATCH[1]}"
+            for raw_item in "${inline_items[@]}"; do
+                [ -n "$raw_item" ] && [[ ! "$raw_item" =~ ^# ]] && FILE_TASKS+=("$raw_item")
+            done
+            continue
+        fi
         if [[ "$line" =~ ^[[:space:]]*TASKS=\( ]]; then
             in_block=true
             continue
@@ -116,7 +124,8 @@ if [ -n "$SWARM_SH" ] && [ -f "$SWARM_SH" ]; then
             if [[ "$line" =~ ^[[:space:]]*\) ]]; then
                 break
             fi
-            item="$(echo "$line" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' -e 's/^["'\'']//' -e 's/["'\'']$//')"
+            item_no_comment="${line%%#*}"
+            item="$(echo "$item_no_comment" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' -e 's/^["'\'']//' -e 's/["'\'']$//')"
             if [ -n "$item" ] && [[ ! "$item" =~ ^# ]]; then
                 FILE_TASKS+=("$item")
             fi
@@ -156,14 +165,7 @@ fi
 # Normalize task names (spaces/slashes to hyphens for valid git refs) and deduplicate
 TASKS=()
 for t in "${RAW_TASKS[@]}"; do
-    local_task="$(echo "$t" | tr ' ' '-' | tr -s '-')"
-    if [ -d "$SWARM_ROOT/$local_task" ] || git -C "$BASE_DIR" show-ref --verify --quiet "refs/heads/swarm/$local_task" 2>/dev/null; then
-        clean_task="$local_task"
-    else
-        clean_task="$(echo "$t" | tr ' /' '--' | tr -s '-')"
-        clean_task="${clean_task#-}"
-        clean_task="${clean_task%-}"
-    fi
+    clean_task="$(normalize_task_name "$t")"
     [ -z "$clean_task" ] && continue
     found=false
     for existing in "${TASKS[@]}"; do

@@ -131,6 +131,45 @@ empty_tasks_in_swarm_file() {
     mv -f "$tmp_swarm" "$swarm_file"
 }
 
+close_konsole_session() {
+    local task="$1"
+    local protected_pids="$2"
+    local qdbus_cmd=""
+    if command -v qdbus6 &>/dev/null; then
+        qdbus_cmd="qdbus6"
+    elif command -v qdbus &>/dev/null; then
+        qdbus_cmd="qdbus"
+    else
+        return 1
+    fi
+
+    local closed=false
+    local svc
+    for svc in $("$qdbus_cmd" 2>/dev/null | grep -E '^org\.kde\.konsole' || true); do
+        local sess_path
+        for sess_path in $("$qdbus_cmd" "$svc" 2>/dev/null | grep -E '^/Sessions/[0-9]+$' || true); do
+            local t0 t1 spid
+            t0="$("$qdbus_cmd" "$svc" "$sess_path" title 0 2>/dev/null || true)"
+            t1="$("$qdbus_cmd" "$svc" "$sess_path" title 1 2>/dev/null || true)"
+            if [ "$t0" = "Swarm: $task" ] || [ "$t1" = "Swarm: $task" ]; then
+                spid="$("$qdbus_cmd" "$svc" "$sess_path" processId 2>/dev/null || true)"
+                if [[ "$spid" =~ ^[0-9]+$ ]] && [[ "$protected_pids" == *" $spid "* ]]; then
+                    continue
+                fi
+                if [[ "$spid" =~ ^[0-9]+$ ]]; then
+                    pkill -TERM -P "$spid" 2>/dev/null || true
+                    sleep 0.15
+                    pkill -KILL -P "$spid" 2>/dev/null || true
+                fi
+                "$qdbus_cmd" "$svc" "$sess_path" sendText $'exit\n' &>/dev/null || true
+                closed=true
+            fi
+        done
+    done
+
+    [ "$closed" = true ]
+}
+
 close_task_terminal() {
     local task="$1"
     local wt_dir="$2"
@@ -154,12 +193,17 @@ close_task_terminal() {
         local tpid
         tpid="$(cat "$pid_file" 2>/dev/null || true)"
         if [[ "$tpid" =~ ^[0-9]+$ ]] && [[ "$protected_pids" != *" $tpid "* ]] && kill -0 "$tpid" 2>/dev/null; then
+            # Terminate children of the sh wrapper so sh exits cleanly with 0 (avoiding terminal crash warnings).
+            # Send HUP as well as TERM because interactive shells (fish/bash/zsh) ignore SIGTERM.
             pkill -TERM -P "$tpid" 2>/dev/null || true
-            kill -TERM "$tpid" 2>/dev/null || true
-            sleep 0.1
+            pkill -HUP -P "$tpid" 2>/dev/null || true
+            sleep 0.15
             if kill -0 "$tpid" 2>/dev/null; then
                 pkill -KILL -P "$tpid" 2>/dev/null || true
-                kill -KILL "$tpid" 2>/dev/null || true
+                sleep 0.1
+            fi
+            if kill -0 "$tpid" 2>/dev/null; then
+                kill -TERM "$tpid" 2>/dev/null || true
             fi
             closed_any=true
         fi
@@ -167,8 +211,13 @@ close_task_terminal() {
         rmdir "$pid_dir" 2>/dev/null || true
     fi
 
-    # Fallback: close any remaining processes whose cwd is inside this task's worktree
-    if [ -n "$wt_dir" ] && [ -d "$wt_dir" ]; then
+    # Close matching Konsole tab cleanly via D-Bus (also handles tabs spawned without a pidfile)
+    if [ "$closed_any" = false ] && close_konsole_session "$task" "$protected_pids"; then
+        closed_any=true
+    fi
+
+    # Fallback: close any remaining non-shell processes whose cwd is inside this task's worktree
+    if [ "$closed_any" = false ] && [ -n "$wt_dir" ] && [ -d "$wt_dir" ]; then
         local real_wt
         real_wt="$(cd "$wt_dir" 2>/dev/null && pwd -P || echo "$wt_dir")"
         for proc_cwd in /proc/[0-9]*/cwd; do
@@ -180,6 +229,7 @@ close_task_terminal() {
             target_cwd="$(readlink "$proc_cwd" 2>/dev/null || true)"
             if [ "$target_cwd" = "$real_wt" ] || [[ "$target_cwd" == "$real_wt/"* ]]; then
                 kill -TERM "$pid" 2>/dev/null || true
+                kill -HUP "$pid" 2>/dev/null || true
                 closed_any=true
             fi
         done

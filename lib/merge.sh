@@ -41,6 +41,34 @@ get_base_commit() {
     fi
 }
 
+is_task_merged() {
+    local wt_dir="$1"
+    if ! is_worktree "$wt_dir"; then
+        return 1
+    fi
+    local wt_head main_head
+    wt_head="$(git -C "$wt_dir" rev-parse HEAD 2>/dev/null)" || return 1
+    main_head="$(git -C "$BASE_DIR" rev-parse HEAD 2>/dev/null)" || return 1
+
+    if git -C "$BASE_DIR" merge-base --is-ancestor "$wt_head" "$main_head" 2>/dev/null; then
+        if git -C "$wt_dir" reflog show --format='%gs' HEAD 2>/dev/null | grep -q '^commit:'; then
+            return 0
+        fi
+        local task_name="$(basename "$wt_dir")"
+        if git -C "$BASE_DIR" reflog show main 2>/dev/null | grep -q "merge swarm/$task_name"; then
+            return 0
+        fi
+        if [ "$wt_head" = "$main_head" ]; then
+            local initial_wt_commit
+            initial_wt_commit="$(git -C "$wt_dir" reflog show --format='%H' HEAD 2>/dev/null | tail -n 1)"
+            if [ -n "$initial_wt_commit" ] && [ "$initial_wt_commit" != "$wt_head" ]; then
+                return 0
+            fi
+        fi
+    fi
+    return 1
+}
+
 apply_task() {
     local task="$1"
     local wt_dir="$SWARM_ROOT/$task"
@@ -63,7 +91,12 @@ apply_task() {
     mapfile -t changed_files < <(git -C "$wt_dir" diff --name-only "$base_commit" -- . ':(exclude)node_modules' ':(exclude).venv' ':(exclude)venv' ":(exclude)$TOOL_FOLDER_NAME" 2>/dev/null)
 
     if [ ${#changed_files[@]} -eq 0 ]; then
-        echo "Agent [$task] has not made any code changes (empty)."
+        if is_task_merged "$wt_dir"; then
+            echo "Agent [$task] changes are already merged / present in Main Tree (commit: $(git -C "$wt_dir" rev-parse --short HEAD 2>/dev/null))."
+            echo "All files are already up to date in Main Tree."
+        else
+            echo "Agent [$task] has not made any code changes (empty)."
+        fi
         return 0
     fi
 
@@ -126,6 +159,12 @@ unapply_task() {
         return 1
     fi
 
+    if [ "$base_commit" = "$(git -C "$wt_dir" rev-parse HEAD 2>/dev/null)" ] && is_task_merged "$wt_dir"; then
+        echo "Changes from [$task] are already committed into Main Tree history (not uncommitted/unstaged changes)."
+        echo "Use git revert or git reset on Main Tree to revert committed history."
+        return 0
+    fi
+
     if git -C "$wt_dir" diff "$base_commit" -- . ':(exclude)node_modules' ':(exclude).venv' ':(exclude)venv' ":(exclude)$TOOL_FOLDER_NAME" 2>/dev/null | git -C "$BASE_DIR" apply -R --3way --whitespace=nowarn - 2>/dev/null; then
         git -C "$BASE_DIR" reset -q HEAD 2>/dev/null || true
         echo "Changes from [$task] successfully removed from Main Tree!"
@@ -159,6 +198,8 @@ show_summary() {
                 if [ -n "$stat" ]; then
                     echo "  [$((i+1))] $t :$stat"
                     git -C "$wt_dir" diff --name-status "$base_commit" -- . ':(exclude)node_modules' ':(exclude).venv' ':(exclude)venv' ":(exclude)$TOOL_FOLDER_NAME" 2>/dev/null | sed 's/^/       /'
+                elif is_task_merged "$wt_dir"; then
+                    echo "  [$((i+1))] $t : (Already merged / present in Main Tree at $(git -C "$wt_dir" rev-parse --short HEAD 2>/dev/null))"
                 else
                     echo "  [$((i+1))] $t : (No changes)"
                 fi

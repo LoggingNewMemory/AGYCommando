@@ -91,6 +91,8 @@ while true; do
                 changes_count=$(git -C "$wt_dir" diff --name-only "$base_commit" -- . ':(exclude)node_modules' ':(exclude).venv' ':(exclude)venv' ":(exclude)$TOOL_FOLDER_NAME" 2>/dev/null | sed '/^\s*$/d' | wc -l)
                 if [ "$changes_count" -gt 0 ]; then
                     status_badge="$changes_count files changed"
+                elif is_task_merged "$wt_dir"; then
+                    status_badge="Already Merged"
                 fi
             fi
         elif [ -d "$wt_dir" ]; then

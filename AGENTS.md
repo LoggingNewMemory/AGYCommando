@@ -17,3 +17,4 @@ All LLMs and AI agents working on this project must consult and strictly adhere 
 - [`GitBasic.md`](Skill/GitBasic.md): Strict Git rules (no git commit unless commanded; keep everything unstaged for developer review).
 - [`Usage.md`](Skill/Usage.md): Usage model, execution patterns, and strict dynamic path requirements.
 - [`DesignBasic.md`](Skill/DesignBasic.md): Design and formatting restrictions (no unneeded emojis unless asked).
+- [`OOPBasic.md`](Skill/OOPBasic.md): Basic of Object Oriented Programming.

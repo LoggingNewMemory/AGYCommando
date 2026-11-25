@@ -131,6 +131,65 @@ empty_tasks_in_swarm_file() {
     mv -f "$tmp_swarm" "$swarm_file"
 }
 
+close_task_terminal() {
+    local task="$1"
+    local wt_dir="$2"
+    local pid_dir="$SWARM_ROOT/.pids"
+    local pid_file="$pid_dir/${task}.pid"
+
+    # Collect current process and all ancestor PIDs so we never kill our own session
+    local protected_pids=" $$ "
+    local cur_pid="$$"
+    while [ -n "$cur_pid" ] && [ "$cur_pid" -gt 1 ] 2>/dev/null; do
+        local parent_pid
+        parent_pid="$(awk '/^PPid:/ {print $2}' "/proc/$cur_pid/status" 2>/dev/null || true)"
+        [ -z "$parent_pid" ] || [ "$parent_pid" = "$cur_pid" ] && break
+        protected_pids="${protected_pids}${parent_pid} "
+        cur_pid="$parent_pid"
+    done
+
+    local closed_any=false
+
+    if [ -f "$pid_file" ]; then
+        local tpid
+        tpid="$(cat "$pid_file" 2>/dev/null || true)"
+        if [[ "$tpid" =~ ^[0-9]+$ ]] && [[ "$protected_pids" != *" $tpid "* ]] && kill -0 "$tpid" 2>/dev/null; then
+            pkill -TERM -P "$tpid" 2>/dev/null || true
+            kill -TERM "$tpid" 2>/dev/null || true
+            sleep 0.1
+            if kill -0 "$tpid" 2>/dev/null; then
+                pkill -KILL -P "$tpid" 2>/dev/null || true
+                kill -KILL "$tpid" 2>/dev/null || true
+            fi
+            closed_any=true
+        fi
+        rm -f "$pid_file" 2>/dev/null || true
+        rmdir "$pid_dir" 2>/dev/null || true
+    fi
+
+    # Fallback: close any remaining processes whose cwd is inside this task's worktree
+    if [ -n "$wt_dir" ] && [ -d "$wt_dir" ]; then
+        local real_wt
+        real_wt="$(cd "$wt_dir" 2>/dev/null && pwd -P || echo "$wt_dir")"
+        for proc_cwd in /proc/[0-9]*/cwd; do
+            [ -L "$proc_cwd" ] || continue
+            local pid_dir_path="${proc_cwd%/cwd}"
+            local pid="${pid_dir_path#/proc/}"
+            [[ "$protected_pids" == *" $pid "* ]] && continue
+            local target_cwd
+            target_cwd="$(readlink "$proc_cwd" 2>/dev/null || true)"
+            if [ "$target_cwd" = "$real_wt" ] || [[ "$target_cwd" == "$real_wt/"* ]]; then
+                kill -TERM "$pid" 2>/dev/null || true
+                closed_any=true
+            fi
+        done
+    fi
+
+    if [ "$closed_any" = true ]; then
+        echo "  [+] Closed terminal for task: $task"
+    fi
+}
+
 clean_task() {
     local task_input="$1"
     local del_branch="${2:-true}"
@@ -150,6 +209,8 @@ clean_task() {
     fi
 
     echo "Cleaning task: [$task] in $REPO_NAME..."
+
+    close_task_terminal "$task" "$wt_dir"
 
     if [ -L "$wt_dir/node_modules" ]; then
         rm -f "$wt_dir/node_modules"
@@ -247,6 +308,7 @@ clean_all() {
 
     git -C "$BASE_DIR" worktree prune 2>/dev/null || true
     rm -f "$TASKS_FILE" 2>/dev/null || true
+    rmdir "$SWARM_ROOT/.pids" 2>/dev/null || true
     rmdir "$SWARM_ROOT" 2>/dev/null || true
     echo "All done! Workspace is clean and tidy!"
 }

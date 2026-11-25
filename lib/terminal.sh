@@ -25,18 +25,22 @@ launch_terminal() {
     local branch_name="$3"
     local agent_cmd="${4:-$AGENT_CMD}"
 
+    local pid_dir="$SWARM_ROOT/.pids"
+    local pid_file="$pid_dir/${task_name}.pid"
+    mkdir -p "$pid_dir"
+
     local cmd="echo '==> Task: $task_name ($branch_name)'; echo '==> Worktree: $worktree_dir'; $agent_cmd; exec $USER_SHELL"
 
     if command -v konsole &>/dev/null; then
-        konsole --new-tab --workdir "$worktree_dir" -p tabtitle="Swarm: $task_name" -e "$USER_SHELL" -c "$cmd" &>/dev/null &
+        konsole --new-tab --workdir "$worktree_dir" -p tabtitle="Swarm: $task_name" -e sh -c 'echo $$ > "$1"; shift; exec "$@"' _ "$pid_file" "$USER_SHELL" -c "$cmd" &>/dev/null &
         sleep 0.2
         echo "  [+] Spawned Konsole tab: $task_name"
     elif command -v gnome-terminal &>/dev/null; then
-        gnome-terminal --tab --title="Swarm: $task_name" --working-directory="$worktree_dir" -- "$USER_SHELL" -c "$cmd" &>/dev/null &
+        gnome-terminal --tab --title="Swarm: $task_name" --working-directory="$worktree_dir" -- sh -c 'echo $$ > "$1"; shift; exec "$@"' _ "$pid_file" "$USER_SHELL" -c "$cmd" &>/dev/null &
         sleep 0.2
         echo "  [+] Spawned GNOME Terminal tab: $task_name"
     elif [ -n "$TERMINAL" ] && command -v "$TERMINAL" &>/dev/null; then
-        "$TERMINAL" -e "$USER_SHELL -c 'cd \"$worktree_dir\" && $cmd'" &>/dev/null &
+        "$TERMINAL" -e sh -c 'echo $$ > "$1"; cd "$2" && shift 2 && exec "$@"' _ "$pid_file" "$worktree_dir" "$USER_SHELL" -c "$cmd" &>/dev/null &
         echo "  [+] Spawned terminal ($TERMINAL): $task_name"
     else
         echo "  [!] Worktree ready at: $worktree_dir"

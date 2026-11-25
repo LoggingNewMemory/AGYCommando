@@ -239,7 +239,7 @@ run_swarm_tab() {
             ;;
         n|N)
             local input_tasks
-            read -rp "Enter task name(s) separated by spaces: " input_tasks || return 1
+            read -rp "Enter task name(s) separated by spaces (e.g. UpdateReadme FixThings): " input_tasks || return 1
             local -a new_tasks=()
             read -ra new_tasks <<< "$input_tasks"
             if [ ${#new_tasks[@]} -gt 0 ]; then

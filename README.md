@@ -20,16 +20,27 @@ AGYCommando can be used in any project:
    git clone https://github.com/LoggingNewMemory/AGYCommando.git
    ```
 
-2. Run scripts using either method:
+2. Launch the unified control center (`commando.sh`) using either method:
    - **Navigate to AGYCommando**:
      ```bash
      cd AGYCommando
-     ./swarm.sh <task...>
+     ./commando.sh
      ```
    - **Run from project root**:
      ```bash
-     ./AGYCommando/swarm.sh <task...>
+     ./AGYCommando/commando.sh
      ```
+
+   Inside `commando.sh`, you can stay in one session without running separate scripts:
+   - `a` / `d`: Switch between **SWARM**, **TEST / MERGE**, and **CLEAN** menus (Prev / Next)
+   - `u`: Update AGYCommando (Normal `git pull` or Force reset to `origin/<branch>`)
+   - `q`: Quit
+   - Optional flags: `-C`/`--repo <PATH>`, `--cmd <COMMAND>`, `-t`/`--tab <swarm|test|clean>`
+
+3. Or run individual scripts directly (from either `AGYCommando` or your project root):
+   - **Spawn agents**: `./swarm.sh <task...>` (or `./AGYCommando/swarm.sh <task...>`)
+   - **Test & merge**: `./test-swarm.sh` (or `./AGYCommando/test-swarm.sh`)
+   - **Clean up**: `./clean.sh` (or `./AGYCommando/clean.sh`)
 
 > **Note**: AGYCommando does not use hardcoded paths and automatically detects the target host repository.
 

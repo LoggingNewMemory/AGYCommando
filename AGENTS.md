@@ -18,3 +18,4 @@ All LLMs and AI agents working on this project must consult and strictly adhere 
 - [`Usage.md`](Skill/Usage.md): Usage model, execution patterns, and strict dynamic path requirements.
 - [`DesignBasic.md`](Skill/DesignBasic.md): Design and formatting restrictions (no unneeded emojis unless asked).
 - [`OOPBasic.md`](Skill/OOPBasic.md): Basic of Object Oriented Programming.
+- [`DocumentationBasic.md`](Skill/DocumentationBasic.md): Basic rules when providing documentation
